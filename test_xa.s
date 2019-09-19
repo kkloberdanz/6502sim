@@ -1,3 +1,4 @@
+; write 0xfa to zero page
 *=$8000    
     LDX #$FF
 _loop:
