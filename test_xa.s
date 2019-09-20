@@ -3,10 +3,10 @@
     LDX #$FF
 _LOOP:
     CPX #$0
-    BEQ _EXIT
-    LDA #$FA
+    BEQ _ALL_DONE
+    LDA #$FE
     STA $00,X
     DEX
     JMP _LOOP
-_EXIT:
+_ALL_DONE:
     BRK

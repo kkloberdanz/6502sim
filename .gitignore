@@ -1,4 +1,5 @@
 6502sim
+memory.dump
 *.o65
 *.o
 *.swo

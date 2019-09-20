@@ -14,7 +14,7 @@ debug: test
 valgrind: OPTIM_FLAGS=-Og -ggdb -DDEBUG
 valgrind: test
 
-CC=cc $(OPTIM_FLAGS) $(CFLAGS) $(WARN_FLAGS)
+CC=$(CLANG) $(OPTIM_FLAGS) $(CFLAGS) $(WARN_FLAGS)
 
 loc: clean
 	find . -path '*/.*' -prune -o -type f -exec sloccount {} \+

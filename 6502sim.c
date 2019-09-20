@@ -5,6 +5,8 @@
 #define START_ADDR 0x0200
 #define RAM_SIZE 0xFFFF
 
+#define FETCH_NEXT_BYTE (machine->memory[++(machine->pc)])
+
 enum FlagMask {
     CARRY_FLAG = 1,
     ZERO_FLAG = (1 << 1),
@@ -28,7 +30,11 @@ enum OpCode {
     ORA_ZP_X = 0x01,
     TSB_ZP = 0x04,
     /* ... */
+    JMP_IMM = 0x4C,
+    STA_ZP_INDEX_X = 0x95,
     LDX_IMM = 0xA2,
+    LDA_IMM = 0xA9,
+    DEX = 0xCA,
     CPX_IMM = 0xE0,
     BEQ_PCR = 0xF0
 };
@@ -54,42 +60,68 @@ static size_t sizeof_bin_file(FILE *fp) {
 }
 
 static uint16_t calculate_branch_addr(
-    struct MachineState *machine,
+    const struct MachineState *machine,
 
-    /* will branch MUST be equal to either 1 or 0 as bitwise math
+    /* will_branch MUST be equal to either 1 or 0 as bitwise math
      * hacks are used in this function! */
-    uint8_t will_branch
+    const uint8_t will_branch
 ) {
     const uint8_t *mem = machine->memory;
     const uint16_t pc = machine->pc;
 
     /* immediate is a 2 byte vector encoded as little endian */
-    const uint16_t immediate = mem[pc + 1] | (mem[pc + 2] << 8);
+    const uint16_t immediate = mem[pc + 1];
 
     /* this bitwise hack saves us from doing a branch on the
      * host machine. If an 'if/else' statement were used here, then
      * we may have a branch misprediction. doing bitwise math
      * is fast for the branch predictor */
-    const uint16_t branch_addr = will_branch * immediate;
+    const uint16_t branch_addr = will_branch * (pc + immediate + 2);
     const uint16_t wont_branch_addr = (!will_branch) * (pc + 2);
     const uint16_t branch_target = branch_addr | wont_branch_addr;
     return branch_target;
 }
 
 static int execute(struct MachineState *machine) {
-    enum OpCode opcode = machine->memory[machine->pc];
+    const enum OpCode opcode = machine->memory[machine->pc];
     switch (opcode) {
         case BRK:
             return IRQ;
 
-        case LDX_IMM:
+        case JMP_IMM: {
+            const uint8_t low = FETCH_NEXT_BYTE;
+            const uint8_t high = FETCH_NEXT_BYTE;
+            const uint16_t immediate = low | (high << 8);
+            machine->pc = immediate;
+            break;
+        }
+
+        case STA_ZP_INDEX_X: {
+            const uint8_t immediate = FETCH_NEXT_BYTE;
+            const uint8_t addr = machine->x_reg + immediate;
+            machine->memory[addr] = machine->accum;
             machine->pc++;
-            machine->x_reg = machine->memory[machine->pc];
+            break;
+        }
+
+        case LDX_IMM:
+            machine->x_reg = FETCH_NEXT_BYTE;
+            machine->pc++;
+            break;
+
+        case LDA_IMM:
+            machine->pc++;
+            machine->accum = machine->memory[machine->pc];
+            machine->pc++;
+            break;
+
+        case DEX:
+            machine->x_reg--;
             machine->pc++;
             break;
 
         case CPX_IMM: {
-            const uint8_t immediate = machine->memory[++(machine->pc)];
+            const uint8_t immediate = FETCH_NEXT_BYTE;
             const uint8_t carry_flag = (machine->x_reg >= immediate) & 1;
             const uint8_t zero_flag = (machine->x_reg == immediate) & 1;
             const uint8_t negative_flag = (machine->x_reg >= 0x80) & 1;
@@ -104,9 +136,8 @@ static int execute(struct MachineState *machine) {
         }
 
         case BEQ_PCR: {
-            const uint8_t will_branch = machine->status_reg & ZERO_FLAG;
+            const uint8_t will_branch = (machine->status_reg & ZERO_FLAG) >> 1;
             machine->pc = calculate_branch_addr(machine, will_branch);
-            fprintf(stderr, "branching to: %02X\n", machine->pc);
             break;
         }
 
@@ -117,31 +148,43 @@ static int execute(struct MachineState *machine) {
     return RUNNING;
 }
 
-int run(struct MachineState *machine) {
+static int run(struct MachineState *machine) {
     for (;;) {
         enum StatusCode status = execute(machine);
         switch (status) {
-            case HALT:
-            case ERR:
-                return status;
-
             case RUNNING:
                 break;
 
             /* TODO: Handle interupts */
+            case HALT:
+            case IRQ:
+                return 0;
+
+            case ERR:
+                return status;
+
             default:
                 return 255;
         }
     }
 }
 
+static void memory_dump(
+    const uint8_t *memory,
+    const size_t size
+) {
+    FILE *memory_file = fopen("memory.dump", "wb");
+    fwrite(memory, 1, size, memory_file);
+}
+
 int setup(int argc, char **argv) {
-    size_t prog_size;         /* size in bytes of the program to run on emulator */
-    uint8_t memory[RAM_SIZE]; /* virtual memory of 6502 */
-    char *filename;           /* name of binary file to run */
+    size_t prog_size; /* size in bytes of the program to run on emulator */
+    uint8_t memory[RAM_SIZE] = {0}; /* virtual memory of 6502 */
+    char *filename; /* name of binary file to run */
     FILE *bin_file;
     size_t i;
     struct MachineState machine;
+    int ret_code;
 
     if (argc > 1) {
         filename = argv[1];
@@ -175,6 +218,7 @@ int setup(int argc, char **argv) {
         fclose(bin_file);
     }
 
+    puts("PROGRAM MEMORY:");
     for (i = START_ADDR; i < prog_size + START_ADDR; i++) {
         printf("%04lX:\t%02X\n", i, 0xFF & memory[i]);
     }
@@ -187,7 +231,9 @@ int setup(int argc, char **argv) {
     machine.stack_ptr = 0xFF;
     machine.status_reg = 0;
 
-    return run(&machine);
+    ret_code = run(&machine);
+    memory_dump(machine.memory, RAM_SIZE);
+    return ret_code;
 }
 
 int main(int argc, char **argv) {
