@@ -174,11 +174,16 @@ static void memory_dump(
     const size_t size
 ) {
     FILE *memory_file = fopen("memory.dump", "wb");
-    fwrite(memory, 1, size, memory_file);
-    fclose(memory_file);
+    if (memory_file == NULL) {
+        fprintf(stderr, "failed to open memory.dump file\n");
+        exit(EXIT_FAILURE);
+    } else {
+        fwrite(memory, 1, size, memory_file);
+        fclose(memory_file);
+    }
 }
 
-int setup(int argc, char **argv) {
+static int setup(int argc, char **argv) {
     size_t prog_size; /* size in bytes of the program to run on emulator */
     uint8_t memory[RAM_SIZE] = {0}; /* virtual memory of 6502 */
     char *filename; /* name of binary file to run */

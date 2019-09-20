@@ -1,6 +1,7 @@
 CFLAGS=-std=iso9899:1990
-WARN_FLAGS=-Wall -Wextra -Wpedantic -Werror
+WARN_FLAGS=-Wall -Wextra -Wpedantic -Werror -fstrict-aliasing -Wstrict-aliasing
 CLANG=clang -Wassign-enum -Wenum-conversion
+GCC=gcc
 SANITIZE=-fsanitize=address -fno-omit-frame-pointer -fsanitize=undefined
 
 OBJS=6502sim
