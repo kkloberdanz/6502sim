@@ -1,11 +1,12 @@
-; write 0xfa to zero page
-*=$8000    
+; WRITE 0XFA TO ZERO PAGE
+*=$0200
     LDX #$FF
-_loop:
+_LOOP:
     CPX #$0
-    BEQ _exit
+    BEQ _EXIT
     LDA #$FA
     STA $00,X
-    JMP _loop
-_exit:
+    DEX
+    JMP _LOOP
+_EXIT:
     BRK
