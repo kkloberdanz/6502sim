@@ -175,6 +175,7 @@ static void memory_dump(
 ) {
     FILE *memory_file = fopen("memory.dump", "wb");
     fwrite(memory, 1, size, memory_file);
+    fclose(memory_file);
 }
 
 int setup(int argc, char **argv) {

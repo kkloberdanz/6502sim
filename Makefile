@@ -13,19 +13,20 @@ debug: test
 
 valgrind: OPTIM_FLAGS=-Og -ggdb -DDEBUG
 valgrind: test
+valgrind: VG=valgrind
 
 CC=$(CLANG) $(OPTIM_FLAGS) $(CFLAGS) $(WARN_FLAGS)
 
 loc: clean
 	find . -path '*/.*' -prune -o -type f -exec sloccount {} \+
 
-test: 6502sim assembly
-	./6502sim a.o65
+test: clean 6502sim assembly
+	$(VG) ./6502sim a.o65
 
-6502sim:
+6502sim: clean
 	$(CC) -o 6502sim 6502sim.c
 
-assembly:
+assembly: clean
 	xa test_xa.s
 
 lint:
