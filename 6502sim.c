@@ -5,6 +5,17 @@
 #define START_ADDR 0x0200
 #define RAM_SIZE 0xFFFF
 
+enum FlagMask {
+    CARRY_FLAG = 1,
+    ZERO_FLAG = (1 << 1),
+    IRQ_DISBLE_FLAG = (1 << 2),
+    DECIMAL_MODE_FLAG = (1 << 3),
+    BRK_CMD_FLAG = (1 << 4),
+    ONE_FLAG = (1 << 5),
+    OVERFLOW_FLAG = (1 << 6),
+    NEGATIVE_FLAG = (1 << 7)
+};
+
 enum StatusCode {
     HALT = 0,
     ERR,
@@ -17,7 +28,9 @@ enum OpCode {
     ORA_ZP_X = 0x01,
     TSB_ZP = 0x04,
     /* ... */
-    LDX_IMM = 0xA2
+    LDX_IMM = 0xA2,
+    CPX_IMM = 0xE0,
+    BEQ_PCR = 0xF0
 };
 
 struct MachineState {
@@ -40,6 +53,29 @@ static size_t sizeof_bin_file(FILE *fp) {
     return sz;
 }
 
+static uint16_t calculate_branch_addr(
+    struct MachineState *machine,
+
+    /* will branch MUST be equal to either 1 or 0 as bitwise math
+     * hacks are used in this function! */
+    uint8_t will_branch
+) {
+    const uint8_t *mem = machine->memory;
+    const uint16_t pc = machine->pc;
+
+    /* immediate is a 2 byte vector encoded as little endian */
+    const uint16_t immediate = mem[pc + 1] | (mem[pc + 2] << 8);
+
+    /* this bitwise hack saves us from doing a branch on the
+     * host machine. If an 'if/else' statement were used here, then
+     * we may have a branch misprediction. doing bitwise math
+     * is fast for the branch predictor */
+    const uint16_t branch_addr = will_branch * immediate;
+    const uint16_t wont_branch_addr = (!will_branch) * (pc + 2);
+    const uint16_t branch_target = branch_addr | wont_branch_addr;
+    return branch_target;
+}
+
 static int execute(struct MachineState *machine) {
     enum OpCode opcode = machine->memory[machine->pc];
     switch (opcode) {
@@ -51,6 +87,28 @@ static int execute(struct MachineState *machine) {
             machine->x_reg = machine->memory[machine->pc];
             machine->pc++;
             break;
+
+        case CPX_IMM: {
+            const uint8_t immediate = machine->memory[++(machine->pc)];
+            const uint8_t carry_flag = (machine->x_reg >= immediate) & 1;
+            const uint8_t zero_flag = (machine->x_reg == immediate) & 1;
+            const uint8_t negative_flag = (machine->x_reg >= 0x80) & 1;
+
+            machine->status_reg =
+                  (negative_flag << 7)
+                | (zero_flag << 1)
+                | (carry_flag);
+
+            machine->pc++;
+            break;
+        }
+
+        case BEQ_PCR: {
+            const uint8_t will_branch = machine->status_reg & ZERO_FLAG;
+            machine->pc = calculate_branch_addr(machine, will_branch);
+            fprintf(stderr, "branching to: %02X\n", machine->pc);
+            break;
+        }
 
         default:
             fprintf(stderr, "unknown opcode: %02X\n", opcode);
