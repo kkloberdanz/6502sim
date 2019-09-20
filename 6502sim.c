@@ -204,7 +204,7 @@ static int setup(int argc, char **argv) {
     bin_file = fopen(filename, "rb");
     prog_size = sizeof_bin_file(bin_file);
 
-    if (prog_size > RAM_SIZE) {
+    if (prog_size > RAM_SIZE - START_ADDR) {
         fprintf(
             stderr,
             "%s\nprogram size: %ld, 6502 memory size: %d\n",
