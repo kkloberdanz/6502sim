@@ -3,7 +3,7 @@
 set -e
 
 make clean
-make debug
+make debug -j
 
 echo "*** DUMPING MEMORY ***"
 hexdump -C memory.dump

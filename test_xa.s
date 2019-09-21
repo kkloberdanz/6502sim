@@ -1,12 +1,16 @@
-; WRITE 0XFE TO ZERO PAGE
+; WRITE 0xFF -> 0x00 to zero page
+
 *=$0200
     LDX #$FF
-_LOOP:
+    LDA #$FF
+
+_loop:
     CPX #$0
-    BEQ _ALL_DONE
-    LDA #$FE
+    BEQ _done
     STA $00,X
+    SBC #$1
     DEX
-    JMP _LOOP
-_ALL_DONE:
+    JMP _loop
+
+_done:
     BRK

@@ -42,6 +42,27 @@ static uint16_t calculate_branch_addr(
     return branch_target;
 }
 
+static void do_compare(
+    struct MachineState *machine,
+    const uint8_t reg,
+    const uint8_t immediate,
+
+    /* due to bithacking, this MUST be either 0 or 1
+     * the only instructions that affect overflow are:
+     * ADC, BIT, CLV, PLP, RTI, and SBC */
+    const uint8_t overflow
+) {
+    const uint8_t carry_flag = (reg >= immediate) & 1;
+    const uint8_t zero_flag = (reg == immediate) & 1;
+    const uint8_t negative_flag = (reg >= 0x80) & 1;
+
+    machine->status_reg =
+          (negative_flag << 7)
+        | (overflow << 6)
+        | (zero_flag << 1)
+        | (carry_flag);
+}
+
 static int execute(struct MachineState *machine) {
     const enum OpCode opcode = machine->memory[machine->pc];
     switch (opcode) {
@@ -64,6 +85,32 @@ static int execute(struct MachineState *machine) {
             break;
         }
 
+        case LDY_IMM: {
+            const uint8_t immediate = FETCH_NEXT_BYTE;
+            machine->y_reg = immediate;
+            machine->pc++;
+            break;
+        }
+
+        case LDA_ABS_Y: {
+            const uint8_t low = FETCH_NEXT_BYTE;
+            const uint8_t high = FETCH_NEXT_BYTE;
+            const uint16_t addr = ((low) | (high << 8)) + machine->y_reg;
+            machine->accum = machine->memory[addr];
+            machine->pc++;
+            fprintf(stderr, "$%04X: %02X\n", addr, machine->accum);
+            break;
+        }
+
+        case LDA_ABS_X: {
+            const uint8_t low = FETCH_NEXT_BYTE;
+            const uint8_t high = FETCH_NEXT_BYTE;
+            const uint16_t addr = ((low) | (high << 8)) + machine->x_reg;
+            machine->accum = machine->memory[addr];
+            machine->pc++;
+            break;
+        }
+
         case LDX_IMM:
             machine->x_reg = FETCH_NEXT_BYTE;
             machine->pc++;
@@ -75,6 +122,20 @@ static int execute(struct MachineState *machine) {
             machine->pc++;
             break;
 
+        case LDA_ABS: {
+            const uint8_t low = FETCH_NEXT_BYTE;
+            const uint8_t high = FETCH_NEXT_BYTE;
+            const uint16_t addr = (low) | (high << 8);
+            machine->accum = addr;
+            machine->pc++;
+            break;
+        }
+
+        case INY:
+            machine->y_reg++;
+            machine->pc++;
+            break;
+
         case DEX:
             machine->x_reg--;
             machine->pc++;
@@ -82,15 +143,29 @@ static int execute(struct MachineState *machine) {
 
         case CPX_IMM: {
             const uint8_t immediate = FETCH_NEXT_BYTE;
-            const uint8_t carry_flag = (machine->x_reg >= immediate) & 1;
-            const uint8_t zero_flag = (machine->x_reg == immediate) & 1;
-            const uint8_t negative_flag = (machine->x_reg >= 0x80) & 1;
+            do_compare(machine, machine->x_reg, immediate, 0);
+            machine->pc++;
+            break;
+        }
 
-            machine->status_reg =
-                  (negative_flag << 7)
-                | (zero_flag << 1)
-                | (carry_flag);
+        case INX: {
+            machine->x_reg++;
+            machine->pc++;
+            break;
+        }
 
+        case CMP_IMM: {
+            const uint8_t immediate = FETCH_NEXT_BYTE;
+            do_compare(machine, machine->accum, immediate, 0);
+            machine->pc++;
+            break;
+        }
+
+        case SBC_IMM: {
+            const uint8_t immediate = FETCH_NEXT_BYTE;
+            const uint8_t overflow = (immediate > machine->accum) & 1;
+            machine->accum -= immediate;
+            do_compare(machine, machine->accum, immediate, overflow);
             machine->pc++;
             break;
         }
@@ -106,20 +181,6 @@ static int execute(struct MachineState *machine) {
             return ERR;
     }
     return RUNNING;
-}
-
-static void memory_dump(
-    const uint8_t *memory,
-    const size_t size
-) {
-    FILE *memory_file = fopen("memory.dump", "wb");
-    if (memory_file == NULL) {
-        fprintf(stderr, "failed to open memory.dump file\n");
-        exit(EXIT_FAILURE);
-    } else {
-        fwrite(memory, 1, size, memory_file);
-        fclose(memory_file);
-    }
 }
 
 static size_t map_bin_file_to_memory(uint8_t *memory, FILE *bin_file) {
@@ -145,6 +206,20 @@ static size_t map_bin_file_to_memory(uint8_t *memory, FILE *bin_file) {
 }
 
 /****************** public interface *****************************************/
+void memory_dump(
+    const uint8_t *memory,
+    const size_t size
+) {
+    FILE *memory_file = fopen("memory.dump", "wb");
+    if (memory_file == NULL) {
+        fprintf(stderr, "failed to open memory.dump file\n");
+        exit(EXIT_FAILURE);
+    } else {
+        fwrite(memory, 1, size, memory_file);
+        fclose(memory_file);
+    }
+}
+
 int run_6502(struct MachineState *machine) {
     for (;;) {
         enum StatusCode status = execute(machine);
@@ -175,27 +250,20 @@ void init_6502(struct MachineState *machine, uint8_t *memory) {
     machine->stack_ptr = 0xFF;
     machine->status_reg = 0;
 }
-/*****************************************************************************/
 
-static int setup(int argc, char **argv) {
+int run_6502_bin_file(const char *filename) {
     size_t prog_size; /* size in bytes of the program to run on emulator */
     uint8_t memory[RAM_SIZE] = {0}; /* virtual memory of 6502 */
-    char *filename; /* name of binary file to run */
     FILE *bin_file;
     size_t i;
     struct MachineState machine;
     int ret_code;
 
-    if (argc > 1) {
-        filename = argv[1];
-    } else {
-        fprintf(stderr,
-            "%s: error: no input file, expecting 6502 binary\n",
-            argv[0]);
-        exit(EXIT_FAILURE);
+    bin_file = fopen(filename, "rb");
+    if (bin_file == NULL) {
+        return -1;
     }
 
-    bin_file = fopen(filename, "rb");
     prog_size = map_bin_file_to_memory(memory, bin_file);
     puts("PROGRAM MEMORY:");
     for (i = START_ADDR; i < prog_size + START_ADDR; i++) {
@@ -207,7 +275,4 @@ static int setup(int argc, char **argv) {
     memory_dump(machine.memory, RAM_SIZE);
     return ret_code;
 }
-
-int main(int argc, char **argv) {
-    return setup(argc, argv);
-}
+/*****************************************************************************/

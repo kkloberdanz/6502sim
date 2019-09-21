@@ -9,7 +9,7 @@ OBJS=6502sim
 release: OPTIM_FLAGS=-Os
 release: test
 
-debug: OPTIM_FLAGS=-Og -ggdb -DDEBUG $(SANITIZE)
+debug: OPTIM_FLAGS=-O0 -ggdb -DDEBUG $(SANITIZE)
 debug: test
 
 valgrind: OPTIM_FLAGS=-Og -ggdb -DDEBUG
@@ -21,14 +21,21 @@ CC=$(CLANG) $(OPTIM_FLAGS) $(CFLAGS) $(WARN_FLAGS)
 loc: clean
 	find . -path '*/.*' -prune -o -type f -exec sloccount {} \+
 
-test: clean 6502sim assembly
+test: all
 	$(VG) ./6502sim a.o65
 
-6502sim: clean
-	$(CC) -o 6502sim 6502sim.c
+all: main.o 6502sim.o assembly
+	$(CC) -o 6502sim main.o 6502sim.o
+
+main.o: clean
+	$(CC) -c main.c
+
+6502sim.o: clean
+	$(CC) -c 6502sim.c
 
 assembly: clean
-	xa test_xa.s
+	cpp hello.s -o hello.asm
+	xa hello.asm
 
 lint:
 	clang-tidy 6502sim.c -- -Wall -Wextra -Wpedantic -Wassign-enum \
@@ -39,3 +46,4 @@ clean:
 	rm -f *.so
 	rm -f 6502sim
 	rm -f *.o65
+	rm -f memory.dump

@@ -1,6 +1,7 @@
 #ifndef _6502SIM_H
 #define _6502SIM_H
 
+#include <stdio.h>
 #include <stdint.h>
 
 enum FlagMask {
@@ -28,10 +29,18 @@ enum OpCode {
     /* ... */
     JMP_IMM = 0x4C,
     STA_ZP_INDEX_X = 0x95,
+    LDY_IMM = 0xA0,
+    LDA_ABS_Y = 0xB9,
+    LDA_ABS_X = 0xBD,
     LDX_IMM = 0xA2,
     LDA_IMM = 0xA9,
+    LDA_ABS = 0xAD,
     DEX = 0xCA,
+    INY = 0xC8,
     CPX_IMM = 0xE0,
+    INX = 0xE8,
+    CMP_IMM = 0xC9,
+    SBC_IMM = 0xE9,
     BEQ_PCR = 0xF0
 };
 
@@ -47,5 +56,7 @@ struct MachineState {
 
 int run_6502(struct MachineState *machine);
 void init_6502(struct MachineState *machine, uint8_t *memory);
+void memory_dump(const uint8_t *memory, const size_t size);
+int run_6502_bin_file(const char *filename);
 
 #endif /*_6502SIM_H */
