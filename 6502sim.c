@@ -63,11 +63,30 @@ static void do_compare(
         | (carry_flag);
 }
 
+static void push_stack(struct MachineState *machine, uint8_t val) {
+    uint16_t addr;
+    machine->stack_ptr--;
+    addr = 0x100 + machine->stack_ptr;
+    machine->memory[addr] = val;
+}
+
+static uint8_t pop_stack(struct MachineState *machine) {
+    const uint16_t addr = 0x100 + machine->stack_ptr;
+    const uint8_t val = machine->memory[addr];
+    machine->stack_ptr++;
+    return val;
+}
+
 static int execute(struct MachineState *machine) {
     const enum OpCode opcode = machine->memory[machine->pc];
     switch (opcode) {
         case BRK:
             return IRQ;
+
+        case PHA:
+            push_stack(machine, machine->accum);
+            machine->pc++;
+            break;
 
         case JMP_IMM: {
             const uint8_t low = FETCH_NEXT_BYTE;
@@ -77,6 +96,11 @@ static int execute(struct MachineState *machine) {
             break;
         }
 
+        case PLA:
+            machine->accum = pop_stack(machine);
+            machine->pc++;
+            break;
+
         case STA_ZP_INDEX_X: {
             const uint8_t immediate = FETCH_NEXT_BYTE;
             const uint8_t addr = machine->x_reg + immediate;
@@ -84,6 +108,11 @@ static int execute(struct MachineState *machine) {
             machine->pc++;
             break;
         }
+
+        case TXS:
+            machine->stack_ptr = machine->x_reg;
+            machine->pc++;
+            break;
 
         case LDY_IMM: {
             const uint8_t immediate = FETCH_NEXT_BYTE;
@@ -98,9 +127,13 @@ static int execute(struct MachineState *machine) {
             const uint16_t addr = ((low) | (high << 8)) + machine->y_reg;
             machine->accum = machine->memory[addr];
             machine->pc++;
-            fprintf(stderr, "$%04X: %02X\n", addr, machine->accum);
             break;
         }
+
+        case TSX:
+            machine->x_reg = machine->stack_ptr;
+            machine->pc++;
+            break;
 
         case LDA_ABS_X: {
             const uint8_t low = FETCH_NEXT_BYTE;
