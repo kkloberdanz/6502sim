@@ -1,3 +1,6 @@
+#ifndef SUBROUTINES_S
+#define SUBROUTINES_S
+
 #define VIDEO_BEGIN 8000
 #define VIDEO_END A000
 
@@ -16,7 +19,7 @@ print:
     _print_loop:
         LDA $00,X
         CMP #$0
-        BEQ _quit
+        BEQ _print_done
         STA $8000,Y
         INX
         INY
@@ -26,3 +29,5 @@ print:
         RTS
 
 _end_stdlib:
+
+#endif /* SUBROUTINES_S */

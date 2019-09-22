@@ -92,10 +92,12 @@ static int execute(struct MachineState *machine) {
 
         case JSR: {
             const uint16_t old_addr = machine->pc;
-            const uint8_t low = old_addr | 0x00ff;
-            const uint8_t high = (old_addr | 0xff00) >> 8;
+            const uint8_t low = old_addr & 0x00ff;
+            const uint8_t high = (old_addr & 0xff00) >> 8;
             push_stack(machine, high);
             push_stack(machine, low);
+            machine->pc++;
+            machine->pc++;
             machine->pc = fetch_addr(machine);
             break;
         }
@@ -106,10 +108,16 @@ static int execute(struct MachineState *machine) {
             break;
 
         case JMP_IMM: {
-            const uint8_t low = FETCH_NEXT_BYTE;
-            const uint8_t high = FETCH_NEXT_BYTE;
-            const uint16_t immediate = low | (high << 8);
-            machine->pc = immediate;
+            const uint16_t addr = fetch_addr(machine);
+            machine->pc = addr;
+            break;
+        }
+
+        case RTS: {
+            const uint8_t low = pop_stack(machine);
+            const uint8_t high = pop_stack(machine);
+            const uint16_t addr = low | (high << 8);
+            machine->pc = addr + 1;
             break;
         }
 
@@ -133,6 +141,13 @@ static int execute(struct MachineState *machine) {
             break;
         }
 
+        case STA_ABS_Y: {
+            const uint16_t addr = fetch_addr(machine) + machine->y_reg;
+            machine->memory[addr] = machine->accum;
+            machine->pc++;
+            break;
+        }
+
         case TXS:
             machine->stack_ptr = machine->x_reg;
             machine->pc++;
@@ -149,6 +164,7 @@ static int execute(struct MachineState *machine) {
             const uint8_t orig_addr = FETCH_NEXT_BYTE;
             const uint8_t addr = orig_addr + machine->x_reg;
             machine->accum = machine->memory[addr];
+            machine->pc++;
             break;
         }
 
@@ -241,7 +257,7 @@ static int execute(struct MachineState *machine) {
         }
 
         default:
-            fprintf(stderr, "unknown opcode: %02X\n", opcode);
+            fprintf(stderr, "unknown opcode: $%02X\n", opcode);
             return ERR;
     }
     return RUNNING;
