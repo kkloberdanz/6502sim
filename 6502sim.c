@@ -36,8 +36,8 @@ static uint16_t calculate_branch_addr(
      * host machine. If an 'if/else' statement were used here, then
      * we may have a branch misprediction. doing bitwise math
      * is fast for the branch predictor */
-    const uint16_t branch_addr = will_branch * (pc + immediate + 2);
-    const uint16_t wont_branch_addr = (!will_branch) * (pc + 2);
+    const uint16_t branch_addr = will_branch * (pc + immediate + 1);
+    const uint16_t wont_branch_addr = (!will_branch) * (pc + 1);
     const uint16_t branch_target = branch_addr | wont_branch_addr;
     return branch_target;
 }
@@ -98,17 +98,18 @@ static int execute(struct MachineState *machine) {
             push_stack(machine, high);
             push_stack(machine, low);
             machine->pc = new_addr;
+            goto skip_pc_increment;
             break;
         }
 
         case PHA:
             push_stack(machine, machine->accum);
-            machine->pc++;
             break;
 
         case JMP_IMM: {
             const uint16_t addr = fetch_addr(machine);
             machine->pc = addr;
+            goto skip_pc_increment;
             break;
         }
 
@@ -116,19 +117,17 @@ static int execute(struct MachineState *machine) {
             const uint8_t low = pop_stack(machine);
             const uint8_t high = pop_stack(machine);
             const uint16_t addr = low | (high << 8);
-            machine->pc = addr + 1;
+            machine->pc = addr;
             break;
         }
 
         case PLA:
             machine->accum = pop_stack(machine);
-            machine->pc++;
             break;
 
         case STA_ZP: {
             const uint8_t addr = FETCH_NEXT_BYTE;
             machine->memory[addr] = machine->accum;
-            machine->pc++;
             break;
         }
 
@@ -136,26 +135,22 @@ static int execute(struct MachineState *machine) {
             const uint8_t immediate = FETCH_NEXT_BYTE;
             const uint8_t addr = machine->x_reg + immediate;
             machine->memory[addr] = machine->accum;
-            machine->pc++;
             break;
         }
 
         case STA_ABS_Y: {
             const uint16_t addr = fetch_addr(machine) + machine->y_reg;
             machine->memory[addr] = machine->accum;
-            machine->pc++;
             break;
         }
 
         case TXS:
             machine->stack_ptr = machine->x_reg;
-            machine->pc++;
             break;
 
         case LDY_IMM: {
             const uint8_t immediate = FETCH_NEXT_BYTE;
             machine->y_reg = immediate;
-            machine->pc++;
             break;
         }
 
@@ -164,7 +159,6 @@ static int execute(struct MachineState *machine) {
             const uint8_t with_offset = zp_addr + machine->x_reg;
             const uint16_t addr = machine->memory[with_offset];
             machine->accum = machine->memory[addr];
-            machine->pc++;
             break;
         }
 
@@ -175,7 +169,6 @@ static int execute(struct MachineState *machine) {
             const uint16_t ptr = low | (high << 8);
             const uint16_t addr = ptr + machine->y_reg;
             machine->accum = machine->memory[addr];
-            machine->pc++;
             break;
         }
 
@@ -183,7 +176,6 @@ static int execute(struct MachineState *machine) {
             const uint8_t orig_addr = FETCH_NEXT_BYTE;
             const uint8_t addr = orig_addr + machine->x_reg;
             machine->accum = machine->memory[addr];
-            machine->pc++;
             break;
         }
 
@@ -192,13 +184,11 @@ static int execute(struct MachineState *machine) {
             const uint8_t high = FETCH_NEXT_BYTE;
             const uint16_t addr = ((low) | (high << 8)) + machine->y_reg;
             machine->accum = machine->memory[addr];
-            machine->pc++;
             break;
         }
 
         case TSX:
             machine->x_reg = machine->stack_ptr;
-            machine->pc++;
             break;
 
         case LDA_ABS_X: {
@@ -206,19 +196,16 @@ static int execute(struct MachineState *machine) {
             const uint8_t high = FETCH_NEXT_BYTE;
             const uint16_t addr = ((low) | (high << 8)) + machine->x_reg;
             machine->accum = machine->memory[addr];
-            machine->pc++;
             break;
         }
 
         case LDX_IMM:
             machine->x_reg = FETCH_NEXT_BYTE;
-            machine->pc++;
             break;
 
         case LDA_IMM:
             machine->pc++;
             machine->accum = machine->memory[machine->pc];
-            machine->pc++;
             break;
 
         case LDA_ABS: {
@@ -226,37 +213,31 @@ static int execute(struct MachineState *machine) {
             const uint8_t high = FETCH_NEXT_BYTE;
             const uint16_t addr = (low) | (high << 8);
             machine->accum = addr;
-            machine->pc++;
             break;
         }
 
         case INY:
             machine->y_reg++;
-            machine->pc++;
             break;
 
         case DEX:
             machine->x_reg--;
-            machine->pc++;
             break;
 
         case CPX_IMM: {
             const uint8_t immediate = FETCH_NEXT_BYTE;
             do_compare(machine, machine->x_reg, immediate, 0);
-            machine->pc++;
             break;
         }
 
         case INX: {
             machine->x_reg++;
-            machine->pc++;
             break;
         }
 
         case CMP_IMM: {
             const uint8_t immediate = FETCH_NEXT_BYTE;
             do_compare(machine, machine->accum, immediate, 0);
-            machine->pc++;
             break;
         }
 
@@ -265,7 +246,6 @@ static int execute(struct MachineState *machine) {
             const uint8_t overflow = (immediate > machine->accum) & 1;
             machine->accum -= immediate;
             do_compare(machine, machine->accum, immediate, overflow);
-            machine->pc++;
             break;
         }
 
@@ -279,6 +259,8 @@ static int execute(struct MachineState *machine) {
             fprintf(stderr, "unknown opcode: $%02X\n", opcode);
             return ERR;
     }
+    machine->pc++;
+skip_pc_increment:
     return RUNNING;
 }
 
