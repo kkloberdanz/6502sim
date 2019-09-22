@@ -8,11 +8,22 @@
 _loop:
         LDA _hello,Y
         CMP #$0
-        BEQ _quit
+        BEQ _loop_done
         STA $00,X
         INX
         INY
         JMP _loop
+
+_loop_done:
+
+_print_screen:
+        LDY #$00
+        LDX #$00
+        LDA #$02
+        STA $00
+        LDA #$00
+        STA $01
+        JSR print
 
 _quit:  
         BRK

@@ -77,11 +77,28 @@ static uint8_t pop_stack(struct MachineState *machine) {
     return val;
 }
 
+uint16_t fetch_addr(struct MachineState *machine) {
+    const uint8_t low = FETCH_NEXT_BYTE;
+    const uint8_t high = FETCH_NEXT_BYTE;
+    const uint16_t addr = low | (high << 8);
+    return addr;
+}
+
 static int execute(struct MachineState *machine) {
     const enum OpCode opcode = machine->memory[machine->pc];
     switch (opcode) {
         case BRK:
             return IRQ;
+
+        case JSR: {
+            const uint16_t old_addr = machine->pc;
+            const uint8_t low = old_addr | 0x00ff;
+            const uint8_t high = (old_addr | 0xff00) >> 8;
+            push_stack(machine, high);
+            push_stack(machine, low);
+            machine->pc = fetch_addr(machine);
+            break;
+        }
 
         case PHA:
             push_stack(machine, machine->accum);
@@ -101,6 +118,13 @@ static int execute(struct MachineState *machine) {
             machine->pc++;
             break;
 
+        case STA_ZP: {
+            const uint8_t addr = FETCH_NEXT_BYTE;
+            machine->memory[addr] = machine->accum;
+            machine->pc++;
+            break;
+        }
+
         case STA_ZP_INDEX_X: {
             const uint8_t immediate = FETCH_NEXT_BYTE;
             const uint8_t addr = machine->x_reg + immediate;
@@ -118,6 +142,13 @@ static int execute(struct MachineState *machine) {
             const uint8_t immediate = FETCH_NEXT_BYTE;
             machine->y_reg = immediate;
             machine->pc++;
+            break;
+        }
+
+        case LDA_ZP_X: {
+            const uint8_t orig_addr = FETCH_NEXT_BYTE;
+            const uint8_t addr = orig_addr + machine->x_reg;
+            machine->accum = machine->memory[addr];
             break;
         }
 
