@@ -340,7 +340,6 @@ int run_6502_bin_file(const char *filename) {
     size_t prog_size; /* size in bytes of the program to run on emulator */
     uint8_t memory[RAM_SIZE] = {0}; /* virtual memory of 6502 */
     FILE *bin_file;
-    size_t i;
     struct MachineState machine;
     int ret_code;
 
@@ -350,10 +349,6 @@ int run_6502_bin_file(const char *filename) {
     }
 
     prog_size = map_bin_file_to_memory(memory, bin_file);
-    puts("PROGRAM MEMORY:");
-    for (i = START_ADDR; i < prog_size + START_ADDR; i++) {
-        printf("%04lX:\t%02X\n", i, 0xFF & memory[i]);
-    }
 
     init_6502(&machine, memory);
     ret_code = run_6502(&machine);
