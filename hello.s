@@ -2,31 +2,17 @@
 
 ; text
 *=$0200
-        LDX #$02
-        LDY #$00
-
-_loop:
-        LDA _hello,Y
-        CMP #$0
-        BEQ _loop_done
-        STA $00,X
-        INX
-        INY
-        JMP _loop
-
-_loop_done:
 
 _print_screen:
-        LDY #$00
-        LDX #$00
-        LDA #$02
-        STA $00
-        LDA #$00
-        STA $01
-        JSR print
+    LDA _hello
+    STA $00
+    LDA _hello >> 8
+    STA $01
+    LDY #$00
+    JSR print
 
 _quit:  
-        BRK
+    BRK
 
 ; data
 _hello: .byt "HELLO WORLD"

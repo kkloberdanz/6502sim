@@ -170,8 +170,10 @@ static int execute(struct MachineState *machine) {
 
         case LDA_IND_Y: {
             const uint8_t zp_addr = FETCH_NEXT_BYTE;
-            const uint16_t before_offset = machine->memory[zp_addr];
-            const uint16_t addr = before_offset + machine->y_reg;
+            const uint8_t low = machine->memory[zp_addr];
+            const uint8_t high = machine->memory[zp_addr + 1];
+            const uint16_t ptr = low | (high << 8);
+            const uint16_t addr = ptr + machine->y_reg;
             machine->accum = machine->memory[addr];
             machine->pc++;
             break;

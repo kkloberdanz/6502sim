@@ -10,7 +10,6 @@ print:
 ; precondition:
 ;     low and high bytes of the address of the NULL terminated string to
 ;     print are stored in the zero page at addresses $00 and $01 respectively
-;     register X with Y containing the offset to begin printing
 ;
 ; postcondition:
 ;     all registers are invalidated
