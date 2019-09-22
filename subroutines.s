@@ -9,7 +9,7 @@ JMP _end_stdlib
 print:
 ; precondition:
 ;     low and high bytes of the address of the NULL terminated string to
-;     print are stored in the zero page with the address to them in 
+;     print are stored in the zero page at addresses $00 and $01 respectively
 ;     register X with Y containing the offset to begin printing
 ;
 ; postcondition:
@@ -17,11 +17,10 @@ print:
 ;     the string will be written to the screen
 
     _print_loop:
-        LDA $00,X
+        LDA ($00),Y
         CMP #$0
         BEQ _print_done
         STA $8000,Y
-        INX
         INY
         JMP _print_loop
 

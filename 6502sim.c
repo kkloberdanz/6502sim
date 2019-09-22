@@ -91,14 +91,13 @@ static int execute(struct MachineState *machine) {
             return IRQ;
 
         case JSR: {
+            const uint16_t new_addr = fetch_addr(machine);
             const uint16_t old_addr = machine->pc;
             const uint8_t low = old_addr & 0x00ff;
             const uint8_t high = (old_addr & 0xff00) >> 8;
             push_stack(machine, high);
             push_stack(machine, low);
-            machine->pc++;
-            machine->pc++;
-            machine->pc = fetch_addr(machine);
+            machine->pc = new_addr;
             break;
         }
 
@@ -156,6 +155,24 @@ static int execute(struct MachineState *machine) {
         case LDY_IMM: {
             const uint8_t immediate = FETCH_NEXT_BYTE;
             machine->y_reg = immediate;
+            machine->pc++;
+            break;
+        }
+
+        case LDA_IND_X: {
+            const uint8_t zp_addr = FETCH_NEXT_BYTE;
+            const uint8_t with_offset = zp_addr + machine->x_reg;
+            const uint16_t addr = machine->memory[with_offset];
+            machine->accum = machine->memory[addr];
+            machine->pc++;
+            break;
+        }
+
+        case LDA_IND_Y: {
+            const uint8_t zp_addr = FETCH_NEXT_BYTE;
+            const uint16_t before_offset = machine->memory[zp_addr];
+            const uint16_t addr = before_offset + machine->y_reg;
+            machine->accum = machine->memory[addr];
             machine->pc++;
             break;
         }

@@ -12,7 +12,7 @@ release: test
 debug: OPTIM_FLAGS=-O0 -ggdb -DDEBUG $(SANITIZE)
 debug: test
 
-valgrind: OPTIM_FLAGS=-Og -ggdb -DDEBUG
+valgrind: OPTIM_FLAGS=-O0 -ggdb -DDEBUG
 valgrind: test
 valgrind: VG=valgrind
 

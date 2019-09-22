@@ -37,6 +37,8 @@ enum OpCode {
     STA_ABS_Y = 0x99,
     TXS = 0x9A,
     LDY_IMM = 0xA0,
+    LDA_IND_X = 0xA1,
+    LDA_IND_Y = 0xB1,
     LDA_ZP_X = 0xB5,
     LDA_ABS_Y = 0xB9,
     TSX = 0xBA,
