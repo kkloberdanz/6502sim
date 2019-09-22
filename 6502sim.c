@@ -235,6 +235,10 @@ static int execute(struct MachineState *machine) {
             break;
         }
 
+        case NOP: {
+            break;
+        }
+
         case CMP_IMM: {
             const uint8_t immediate = FETCH_NEXT_BYTE;
             do_compare(machine, machine->accum, immediate, 0);

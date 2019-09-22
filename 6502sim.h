@@ -50,6 +50,7 @@ enum OpCode {
     INY = 0xC8,
     CPX_IMM = 0xE0,
     INX = 0xE8,
+    NOP = 0xEA,
     CMP_IMM = 0xC9,
     SBC_IMM = 0xE9,
     BEQ_PCR = 0xF0
