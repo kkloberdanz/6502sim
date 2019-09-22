@@ -68,7 +68,7 @@ struct MachineState {
 
 int run_6502(struct MachineState *machine);
 void init_6502(struct MachineState *machine, uint8_t *memory);
-void memory_dump(const uint8_t *memory, const size_t size);
+int memory_dump(const uint8_t *memory, const size_t size);
 int run_6502_bin_file(const char *filename);
 
 #endif /*_6502SIM_H */

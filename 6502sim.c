@@ -84,6 +84,7 @@ uint16_t fetch_addr(struct MachineState *machine) {
     return addr;
 }
 
+/* Executes a single instruction and modifies machine state */
 static int execute(struct MachineState *machine) {
     const enum OpCode opcode = machine->memory[machine->pc];
     switch (opcode) {
@@ -268,7 +269,7 @@ skip_pc_increment:
     return RUNNING;
 }
 
-static size_t map_bin_file_to_memory(uint8_t *memory, FILE *bin_file) {
+static int32_t map_bin_file_to_memory(uint8_t *memory, FILE *bin_file) {
     const size_t prog_size = sizeof_bin_file(bin_file);
 
     if (prog_size > RAM_SIZE - START_ADDR) {
@@ -278,30 +279,31 @@ static size_t map_bin_file_to_memory(uint8_t *memory, FILE *bin_file) {
             "program does not fit in 6502 memory",
             prog_size,
             RAM_SIZE);
-        exit(EXIT_FAILURE);
+        return -1;
     }
 
     if (fread(memory + START_ADDR, 1, prog_size, bin_file) != prog_size) {
         fprintf(stderr, "error: failed to read bin file\n");
-        exit(EXIT_FAILURE);
+        return -2;
     } else {
         fclose(bin_file);
+        return prog_size;
     }
-    return prog_size;
 }
 
 /****************** public interface *****************************************/
-void memory_dump(
+int memory_dump(
     const uint8_t *memory,
     const size_t size
 ) {
     FILE *memory_file = fopen("memory.dump", "wb");
     if (memory_file == NULL) {
         fprintf(stderr, "failed to open memory.dump file\n");
-        exit(EXIT_FAILURE);
+        return -1;
     } else {
         fwrite(memory, 1, size, memory_file);
         fclose(memory_file);
+        return 0;
     }
 }
 
@@ -337,7 +339,7 @@ void init_6502(struct MachineState *machine, uint8_t *memory) {
 }
 
 int run_6502_bin_file(const char *filename) {
-    size_t prog_size; /* size in bytes of the program to run on emulator */
+    int32_t prog_size; /* size in bytes of the program to run on emulator */
     uint8_t memory[RAM_SIZE] = {0}; /* virtual memory of 6502 */
     FILE *bin_file;
     struct MachineState machine;
@@ -349,6 +351,9 @@ int run_6502_bin_file(const char *filename) {
     }
 
     prog_size = map_bin_file_to_memory(memory, bin_file);
+    if (prog_size < 0) {
+        return prog_size; /* < 0 indicates error */
+    }
 
     init_6502(&machine, memory);
     ret_code = run_6502(&machine);
