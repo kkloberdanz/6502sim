@@ -42,6 +42,20 @@ static uint16_t calculate_branch_addr(
     return branch_target;
 }
 
+static void set_status_flag(
+    struct MachineState *machine,
+    const uint8_t negative_flag,
+    const uint8_t overflow,
+    const uint8_t zero_flag,
+    const uint8_t carry_flag
+) {
+    machine->status_reg =
+          (negative_flag << NEGATIVE_POS)
+        | (overflow << OVERFLOW_POS)
+        | (zero_flag << ZERO_POS)
+        | (carry_flag << CARRY_POS);
+}
+
 static void do_compare(
     struct MachineState *machine,
     const uint8_t reg,
@@ -55,12 +69,7 @@ static void do_compare(
     const uint8_t carry_flag = (reg >= immediate) & 1;
     const uint8_t zero_flag = (reg == immediate) & 1;
     const uint8_t negative_flag = (reg >= 0x80) & 1;
-
-    machine->status_reg =
-          (negative_flag << 7)
-        | (overflow << 6)
-        | (zero_flag << 1)
-        | (carry_flag);
+    set_status_flag(machine, negative_flag, overflow, zero_flag, carry_flag);
 }
 
 static void push_stack(struct MachineState *machine, uint8_t val) {
@@ -91,6 +100,19 @@ static int execute(struct MachineState *machine) {
         case BRK:
             return IRQ;
 
+        case BPL: {
+            const uint8_t reg = machine->status_reg;
+            const uint8_t will_branch =
+                !((reg & NEGATIVE_MASK) >> NEGATIVE_POS);
+            machine->pc = calculate_branch_addr(machine, will_branch);
+            break;
+        }
+
+        case CLC: {
+            machine->status_reg &= CARRY_MASK;
+            break;
+        }
+
         case JSR: {
             const uint16_t new_addr = fetch_addr(machine);
             const uint16_t old_addr = machine->pc;
@@ -100,6 +122,12 @@ static int execute(struct MachineState *machine) {
             push_stack(machine, low);
             machine->pc = new_addr;
             goto skip_pc_increment;
+            break;
+        }
+
+        case AND_IMM: {
+            const uint8_t immediate = FETCH_NEXT_BYTE;
+            machine->accum &= immediate;
             break;
         }
 
@@ -122,6 +150,25 @@ static int execute(struct MachineState *machine) {
             break;
         }
 
+        case ADC_IMM: {
+            const uint16_t immediate = FETCH_NEXT_BYTE;
+            const uint16_t carry = machine->status_reg & CARRY_MASK;
+            const uint16_t result = immediate + machine->accum + carry;
+            const uint8_t result_8bit = (uint8_t)result;
+            const uint8_t carry_flag = (result >> 8) & 1;
+            const uint8_t negative_flag = (result_8bit >= 0x80) & 1;
+            const uint8_t zero_flag = result_8bit == immediate;
+            const uint8_t overflow_flag = carry_flag;
+            machine->accum = (uint8_t)result;
+            set_status_flag(
+                machine,
+                negative_flag,
+                overflow_flag,
+                zero_flag,
+                carry_flag);
+            break;
+        }
+
         case PLA:
             machine->accum = pop_stack(machine);
             break;
@@ -131,6 +178,10 @@ static int execute(struct MachineState *machine) {
             machine->memory[addr] = machine->accum;
             break;
         }
+
+        case TXA:
+            machine->accum = machine->x_reg;
+            break;
 
         case STA_ZP_INDEX_X: {
             const uint8_t immediate = FETCH_NEXT_BYTE;
@@ -160,6 +211,12 @@ static int execute(struct MachineState *machine) {
             const uint8_t with_offset = zp_addr + machine->x_reg;
             const uint16_t addr = machine->memory[with_offset];
             machine->accum = machine->memory[addr];
+            break;
+        }
+
+        case LDX_ZP: {
+            const uint8_t addr = FETCH_NEXT_BYTE;
+            machine->x_reg = machine->memory[addr];
             break;
         }
 
@@ -204,6 +261,12 @@ static int execute(struct MachineState *machine) {
             machine->x_reg = FETCH_NEXT_BYTE;
             break;
 
+        case LDA_ZP: {
+            const uint8_t zp_addr = FETCH_NEXT_BYTE;
+            machine->accum = machine->memory[zp_addr];
+            break;
+        }
+
         case LDA_IMM:
             machine->pc++;
             machine->accum = machine->memory[machine->pc];
@@ -231,12 +294,26 @@ static int execute(struct MachineState *machine) {
             break;
         }
 
+        case CPX_ZP: {
+            const uint8_t addr = FETCH_NEXT_BYTE;
+            const uint8_t value = machine->memory[addr];
+            do_compare(machine, machine->x_reg, value, 0);
+            break;
+        }
+
         case INX: {
             machine->x_reg++;
             break;
         }
 
         case NOP: {
+            break;
+        }
+
+        case CMP_ZP: {
+            const uint8_t addr = FETCH_NEXT_BYTE;
+            const uint8_t value = machine->memory[addr];
+            do_compare(machine, machine->accum, value, 0);
             break;
         }
 
@@ -254,8 +331,23 @@ static int execute(struct MachineState *machine) {
             break;
         }
 
-        case BEQ_PCR: {
-            const uint8_t will_branch = (machine->status_reg & ZERO_FLAG) >> 1;
+        case CMP_ABS: {
+            const uint16_t addr = fetch_addr(machine);
+            const uint8_t value = machine->memory[addr];
+            do_compare(machine, machine->accum, value, 0);
+            break;
+        }
+
+        case BNE: {
+            const uint8_t reg = machine->status_reg;
+            const uint8_t will_branch = !((reg & ZERO_MASK) >> ZERO_POS);
+            machine->pc = calculate_branch_addr(machine, will_branch);
+            break;
+        }
+
+        case BEQ: {
+            const uint8_t reg = machine->status_reg;
+            const uint8_t will_branch = (reg & ZERO_MASK) >> ZERO_POS;
             machine->pc = calculate_branch_addr(machine, will_branch);
             break;
         }

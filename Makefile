@@ -34,7 +34,7 @@ main.o: clean
 	$(CC) -c 6502sim.c
 
 assembly: clean
-	xa hello.s
+	xa snake.s
 
 lint:
 	clang-tidy 6502sim.c -- -Wall -Wextra -Wpedantic -Wassign-enum \
