@@ -2,7 +2,7 @@
 #define SUBROUTINES_S
 
 #define VIDEO_BEGIN 8000
-#define VIDEO_END A000
+#define VIDEO_END 8400
 
 JMP _end_stdlib
 
@@ -19,7 +19,7 @@ print:
         LDA ($00),Y
         CMP #$0
         BEQ _print_done
-        STA $8000,Y
+        STA $VIDEO_BEGIN,Y
         INY
         JMP _print_loop
 

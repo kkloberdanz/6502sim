@@ -34,8 +34,7 @@ main.o: clean
 	$(CC) -c 6502sim.c
 
 assembly: clean
-	cpp hello.s -o hello.asm
-	xa hello.asm
+	xa hello.s
 
 lint:
 	clang-tidy 6502sim.c -- -Wall -Wextra -Wpedantic -Wassign-enum \
