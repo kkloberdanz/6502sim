@@ -1,4 +1,4 @@
-CFLAGS=-std=iso9899:1990
+CFLAGS=-std=gnu89
 WARN_FLAGS=-Wall -Wextra -Wpedantic -Werror -fstrict-aliasing -Wstrict-aliasing
 CLANG=clang -Wassign-enum -Wenum-conversion
 GCC=gcc

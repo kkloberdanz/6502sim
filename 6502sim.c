@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <errno.h>
 
 #include "6502sim.h"
 
@@ -94,7 +95,7 @@ uint16_t fetch_addr(struct MachineState *machine) {
 }
 
 /* Executes a single instruction and modifies machine state */
-static int execute(struct MachineState *machine) {
+static int execute(struct MachineState *machine, void (*sleep_function)()) {
     const enum OpCode opcode = machine->memory[machine->pc];
     switch (opcode) {
         case BRK:
@@ -358,6 +359,9 @@ static int execute(struct MachineState *machine) {
     }
     machine->pc++;
 skip_pc_increment:
+    if (sleep_function) {
+        sleep_function();
+    }
     return RUNNING;
 }
 
@@ -399,9 +403,9 @@ int memory_dump(
     }
 }
 
-int run_6502(struct MachineState *machine) {
+int run_6502(struct MachineState *machine, void (*sleep_function)()) {
     for (;;) {
-        enum StatusCode status = execute(machine);
+        enum StatusCode status = execute(machine, sleep_function);
         switch (status) {
             case RUNNING:
                 break;
@@ -430,7 +434,7 @@ void init_6502(struct MachineState *machine, uint8_t *memory) {
     machine->status_reg = 0;
 }
 
-int run_6502_bin_file(const char *filename) {
+int run_6502_bin_file(const char *filename, void (*sleep_function)()) {
     int32_t prog_size; /* size in bytes of the program to run on emulator */
     uint8_t memory[RAM_SIZE] = {0}; /* virtual memory of 6502 */
     FILE *bin_file;
@@ -448,7 +452,7 @@ int run_6502_bin_file(const char *filename) {
     }
 
     init_6502(&machine, memory);
-    ret_code = run_6502(&machine);
+    ret_code = run_6502(&machine, sleep_function);
     memory_dump(machine.memory, RAM_SIZE);
     return ret_code;
 }
