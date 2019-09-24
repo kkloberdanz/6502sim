@@ -1,5 +1,5 @@
 CFLAGS=-std=gnu89
-WARN_FLAGS=-Wall -Wextra -Wpedantic -Werror -fstrict-aliasing -Wstrict-aliasing
+WARN_FLAGS=-Wall -Wextra -Werror -fstrict-aliasing -Wstrict-aliasing
 CLANG=clang -Wassign-enum -Wenum-conversion
 GCC=gcc
 SANITIZE=-fsanitize=address -fno-omit-frame-pointer -fsanitize=undefined
@@ -34,7 +34,7 @@ main.o: clean
 	$(CC) -c 6502sim.c
 
 assembly: clean
-	xa snake.s
+	xa hello.s
 
 lint:
 	clang-tidy 6502sim.c -- -Wall -Wextra -Wpedantic -Wassign-enum \

@@ -11,6 +11,21 @@ _print_screen:
     LDY #$00
     JSR print
 
+_switch_case:
+    LDX #$00
+
+    _case_loop:
+        LDA _hello,X
+        CMP #$00
+        BEQ _loop_back
+        LDA #$20
+        EOR _hello,X
+        INX
+        JMP _case_loop
+
+_loop_back:
+    JMP _print_screen
+
 _quit:  
     BRK
 

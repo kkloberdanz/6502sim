@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include "6502sim.h"
 
@@ -140,6 +141,12 @@ static int execute(struct MachineState *machine, void (*sleep_function)()) {
             const uint16_t addr = fetch_addr(machine);
             machine->pc = addr;
             goto skip_pc_increment;
+            break;
+        }
+
+        case EOR_ABS_X: {
+            uint16_t addr = fetch_addr(machine) + machine->x_reg;
+            machine->memory[addr] ^= machine->accum;
             break;
         }
 
@@ -404,6 +411,7 @@ int memory_dump(
 }
 
 int run_6502(struct MachineState *machine, void (*sleep_function)()) {
+    int x = 0, i;
     for (;;) {
         enum StatusCode status = execute(machine, sleep_function);
         switch (status) {
@@ -420,6 +428,19 @@ int run_6502(struct MachineState *machine, void (*sleep_function)()) {
 
             default:
                 return 255;
+        }
+
+        /* display video */
+        for (i = 0; i < 40; i++, x++) {
+            putchar(machine->memory[0x8000 + x]);
+        }
+        putchar('\n');
+
+        if (x > 1000) {
+            x = 0;
+            printf("\e[1;1H\e[2J");
+        } else {
+            x++;
         }
     }
 }

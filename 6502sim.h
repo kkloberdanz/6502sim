@@ -43,6 +43,7 @@ enum OpCode {
     AND_IMM = 0x29,
     PHA = 0x48,
     JMP_IMM = 0x4C,
+    EOR_ABS_X = 0x5D,
     RTS = 0x60,
     ADC_IMM = 0x69,
     PLA = 0x68,
