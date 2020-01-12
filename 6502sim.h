@@ -48,6 +48,7 @@ enum OpCode {
     ADC_IMM = 0x69,
     PLA = 0x68,
     STA_ZP = 0x85,
+    STA_ABS = 0x8D,
     TXA = 0x8A,
     STA_ZP_INDEX_X = 0x95,
     STA_ABS_Y = 0x99,

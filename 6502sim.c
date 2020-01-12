@@ -187,6 +187,14 @@ static int execute(struct MachineState *machine, void (*sleep_function)()) {
             break;
         }
 
+        case STA_ABS: {
+            const uint8_t low = FETCH_NEXT_BYTE;
+            const uint8_t high = FETCH_NEXT_BYTE;
+            const uint16_t addr = low | (high << 8);
+            machine->memory[addr] = machine->accum;
+            break;
+        }
+
         case TXA:
             machine->accum = machine->x_reg;
             break;
@@ -411,7 +419,6 @@ int memory_dump(
 }
 
 int run_6502(struct MachineState *machine, void (*sleep_function)()) {
-    int x = 0, i;
     for (;;) {
         enum StatusCode status = execute(machine, sleep_function);
         switch (status) {
@@ -431,16 +438,27 @@ int run_6502(struct MachineState *machine, void (*sleep_function)()) {
         }
 
         /* display video */
-        for (i = 0; i < 40; i++, x++) {
-            putchar(machine->memory[0x8000 + x]);
-        }
-        putchar('\n');
-
-        if (x > 1000) {
-            x = 0;
+        if (machine->memory[0x8400] == 1) {
+            int mem_addr = 0x8000;
             printf("\e[1;1H\e[2J");
-        } else {
-            x++;
+            while (mem_addr < 0x8400) {
+                int col;
+                for (col = 0; col < 40; col++, mem_addr++) {
+                    char c = machine->memory[mem_addr];
+                    if (mem_addr >= 0x8400) {
+                        goto done;
+                    }
+                    if (c) {
+                        putchar(c);
+                    } else {
+                        putchar(' ');
+                    }
+                }
+                putchar('\n');
+            }
+done:
+            fflush(stdout);
+            machine->memory[0x8400] = 0;
         }
     }
 }

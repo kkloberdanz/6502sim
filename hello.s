@@ -26,11 +26,23 @@ _switch_case:
 _loop_back:
     JMP _print_screen
 
+_delay:
+    LDA #$FF
+_delay_loop:
+    DEC
+    CMP #$00
+    BEQ _delay_done
+    JMP _delay_loop
+_delay_done:
+    RTS
+
 _quit:  
     BRK
 
 ; data
-_hello: .byt "HELLO WORLD"
+_hello: .byt "HELLO WORLD, "
+        .byt "This is comming from a "
+        .byt "6502 microprocessor!"
         BRK ; NULL terminated C string
 
 #include "subroutines.s"
